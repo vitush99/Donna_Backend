@@ -1,0 +1,9 @@
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+**/.DS_Store
