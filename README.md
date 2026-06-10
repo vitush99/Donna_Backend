@@ -2,28 +2,75 @@
 
 Production-grade FastAPI backend for Donna, an AI executive assistant.
 
+## Phase A
+
+Phase A provides an in-memory task API. Tasks are lost when the server restarts. No database, authentication, or external integrations are required.
+
 ## Local setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env
-
-alembic upgrade head
+python -m pip install -e ".[dev]"
 uvicorn donna.main:app --reload
 ```
 
-Health check:
+The API runs at `http://localhost:8000`.
+
+OpenAPI documentation is available at:
+
+```text
+http://localhost:8000/docs
+```
+
+## Run tests
+
+```bash
+python -m pytest
+```
+
+## Endpoints
+
+- `GET /health`
+- `POST /api/tasks`
+- `GET /api/tasks`
+- `GET /api/tasks/{id}`
+- `PATCH /api/tasks/{id}`
+
+## Manual testing
+
+Check server health:
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-Open API docs:
+Create a task:
 
-```text
-http://localhost:8000/docs
+```bash
+curl -X POST http://localhost:8000/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Finish Phase A","description":"Complete the task API"}'
+```
+
+List all tasks:
+
+```bash
+curl http://localhost:8000/api/tasks
+```
+
+Get one task by replacing `TASK_ID` with the ID returned when the task was created:
+
+```bash
+curl http://localhost:8000/api/tasks/TASK_ID
+```
+
+Update a task:
+
+```bash
+curl -X PATCH http://localhost:8000/api/tasks/TASK_ID \
+  -H "Content-Type: application/json" \
+  -d '{"status":"completed"}'
 ```
 
 ## Architecture
@@ -40,6 +87,9 @@ src/donna/
   ai/              agents, tools, prompts, memory, evals
   jobs/            background workers/schedulers
 ```
+
+The database, integrations, AI, and jobs folders are future scaffolding and are not active
+in Phase A.
 
 Core principle:
 

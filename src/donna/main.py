@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from donna.api.router import api_router
 from donna.core.config import settings
 from donna.core.logging import configure_logging
+from donna.middleware.error_handlers import register_error_handlers
 
 
 def create_app() -> FastAPI:
@@ -24,7 +25,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
+    register_error_handlers(app)
     app.include_router(api_router)
     return app
 

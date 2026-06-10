@@ -1,49 +1,48 @@
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from donna.core.errors import NotFoundError
-from donna.domains.tasks.models import Task
+from donna.domains.tasks.models import Task, TaskStatus
 from donna.domains.tasks.repository import TaskRepository
 from donna.domains.tasks.schemas import TaskCreate, TaskUpdate
 
 
 class TaskService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.repo = TaskRepository(db)
+    def __init__(self, repository: TaskRepository):
+        self.repository = repository
 
-    def create_task(self, *, user_id: str, payload: TaskCreate) -> Task:
+    def create_task(self, payload: TaskCreate) -> Task:
+        now = datetime.now(UTC)
         task = Task(
-            user_id=user_id,
+            id=str(uuid4()),
             title=payload.title,
             description=payload.description,
-            priority=payload.priority.value,
-            due_at=payload.due_at,
+            status=TaskStatus.PENDING.value,
+            source=payload.source.value,
+            created_at=now,
+            updated_at=now,
         )
-        created = self.repo.create(task)
-        self.db.commit()
-        return created
+        return self.repository.create(task)
 
-    def list_tasks(self, *, user_id: str) -> list[Task]:
-        return self.repo.list_for_user(user_id=user_id)
+    def list_tasks(self) -> list[Task]:
+        return self.repository.list_all()
 
-    def update_task(self, *, user_id: str, task_id: str, payload: TaskUpdate) -> Task:
-        task = self.repo.get_for_user(task_id=task_id, user_id=user_id)
+    def get_task(self, task_id: str) -> Task:
+        task = self.repository.get(task_id)
+
         if task is None:
             raise NotFoundError("Task not found")
 
+        return task
+
+    def update_task(self, task_id: str, payload: TaskUpdate) -> Task:
+        task = self.get_task(task_id)
         updates = payload.model_dump(exclude_unset=True)
+
         for field, value in updates.items():
             if hasattr(value, "value"):
                 value = value.value
             setattr(task, field, value)
 
-        self.db.commit()
-        self.db.refresh(task)
-        return task
-
-    def delete_task(self, *, user_id: str, task_id: str) -> None:
-        task = self.repo.get_for_user(task_id=task_id, user_id=user_id)
-        if task is None:
-            raise NotFoundError("Task not found")
-        self.repo.delete(task)
-        self.db.commit()
+        task.updated_at = datetime.now(UTC)
+        return self.repository.update(task)
