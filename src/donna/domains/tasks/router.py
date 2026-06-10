@@ -1,52 +1,60 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from typing import Annotated
 
-from donna.api.dependencies import get_current_user_id, get_db
-from donna.core.errors import NotFoundError
-from donna.domains.tasks.schemas import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
+from fastapi import APIRouter, Depends, status
+
+from donna.domains.tasks.controller import TaskController
+from donna.domains.tasks.models import Task
+from donna.domains.tasks.repository import TaskRepository
+from donna.domains.tasks.schemas import (
+    TaskCreate,
+    TaskListResponse,
+    TaskResponse,
+    TaskUpdate,
+)
 from donna.domains.tasks.service import TaskService
 
 router = APIRouter()
+
+task_repository = TaskRepository()
+task_service = TaskService(task_repository)
+task_controller = TaskController(task_service)
+
+
+def get_task_controller() -> TaskController:
+    return task_controller
+
+
+TaskControllerDependency = Annotated[TaskController, Depends(get_task_controller)]
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(
     payload: TaskCreate,
-    db: Session = Depends(get_db),
-    user_id: str = Depends(get_current_user_id),
-):
-    return TaskService(db).create_task(user_id=user_id, payload=payload)
+    controller: TaskControllerDependency,
+) -> Task:
+    return controller.create(payload)
 
 
 @router.get("", response_model=TaskListResponse)
 def list_tasks(
-    db: Session = Depends(get_db),
-    user_id: str = Depends(get_current_user_id),
-):
-    tasks = TaskService(db).list_tasks(user_id=user_id)
-    return {"items": tasks}
+    controller: TaskControllerDependency,
+) -> TaskListResponse:
+    items = [TaskResponse.model_validate(task) for task in controller.list_all()]
+    return TaskListResponse(items=items)
+
+
+@router.get("/{task_id}", response_model=TaskResponse)
+def get_task(
+    task_id: str,
+    controller: TaskControllerDependency,
+) -> Task:
+    return controller.get(task_id)
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)
 def update_task(
     task_id: str,
     payload: TaskUpdate,
-    db: Session = Depends(get_db),
-    user_id: str = Depends(get_current_user_id),
-):
-    try:
-        return TaskService(db).update_task(user_id=user_id, task_id=task_id, payload=payload)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-
-@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(
-    task_id: str,
-    db: Session = Depends(get_db),
-    user_id: str = Depends(get_current_user_id),
-):
-    try:
-        TaskService(db).delete_task(user_id=user_id, task_id=task_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    controller: TaskControllerDependency,
+) -> Task:
+    return controller.update(task_id, payload)

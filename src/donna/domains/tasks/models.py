@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
@@ -9,9 +9,17 @@ from donna.db.base import Base
 
 
 class TaskStatus(StrEnum):
-    TODO = "todo"
+    PENDING = "pending"
     IN_PROGRESS = "in_progress"
-    DONE = "done"
+    BLOCKED = "blocked"
+    COMPLETED = "completed"
+
+
+class TaskSource(StrEnum):
+    MANUAL = "manual"
+    EMAIL = "email"
+    CALENDAR = "calendar"
+    SYSTEM = "system"
 
 
 class TaskPriority(StrEnum):
@@ -28,16 +36,23 @@ class Task(Base):
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default=TaskStatus.TODO.value, nullable=False)
-    priority: Mapped[str] = mapped_column(String(50), default=TaskPriority.MEDIUM.value, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(50), default=TaskStatus.PENDING.value, nullable=False
+    )
+    source: Mapped[str] = mapped_column(
+        String(50), default=TaskSource.MANUAL.value, nullable=False
+    )
+    priority: Mapped[str] = mapped_column(
+        String(50), default=TaskPriority.MEDIUM.value, nullable=False
+    )
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )

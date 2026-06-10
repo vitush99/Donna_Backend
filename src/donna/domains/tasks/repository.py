@@ -1,32 +1,23 @@
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from donna.domains.tasks.models import Task
 
 
 class TaskRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self) -> None:
+        self._tasks: dict[str, Task] = {}
 
     def create(self, task: Task) -> Task:
-        self.db.add(task)
-        self.db.flush()
-        self.db.refresh(task)
+        self._tasks[task.id] = task
         return task
 
-    def get_for_user(self, *, task_id: str, user_id: str) -> Task | None:
-        statement = select(Task).where(Task.id == task_id, Task.user_id == user_id)
-        return self.db.scalar(statement)
+    def get(self, task_id: str) -> Task | None:
+        return self._tasks.get(task_id)
 
-    def list_for_user(self, *, user_id: str, limit: int = 100) -> list[Task]:
-        statement = (
-            select(Task)
-            .where(Task.user_id == user_id)
-            .order_by(Task.created_at.desc())
-            .limit(limit)
-        )
-        return list(self.db.scalars(statement).all())
+    def list_all(self) -> list[Task]:
+        return list(self._tasks.values())
 
-    def delete(self, task: Task) -> None:
-        self.db.delete(task)
-        self.db.flush()
+    def update(self, task: Task) -> Task:
+        self._tasks[task.id] = task
+        return task
+
+    def clear(self) -> None:
+        self._tasks.clear()
